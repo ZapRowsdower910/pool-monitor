@@ -56,15 +56,6 @@
 				<h1>Oh soo crypto</h1>
 				<p>Time to monitor you're pools activity! Fill out the form and click the button to start</p>
 			</div>
-			<div class="col-lg-4">
-				<div class="payout hidden">
-					<h2>Current Balance:</h2>
-					<ul class="list-unstyled">
-						<li class=""><label>Confirmed:</label> <span class="payout-confirmed"></span></li>
-						<li class=""><label>Unconfirmed:</label> <span class="payout-unconfirmed"></span></li>
-					</ul>
-				</div>
-			</div>
 		</div>
 		<div class="row">
 			<form role="form" id="monitorDetails">
@@ -108,7 +99,7 @@
     <div class="container hidden" id="monitorOutput">
       <!-- Example row of columns -->
       <div class="row">
-        <div class="col-lg-4">
+        <div class="col-lg-3">
           <h2 class="text-center">User Data</h2>
           <ul class="list-group">
 			<li class="list-group-item"><b>Username:</b> <span class="username"></span></li>
@@ -119,7 +110,7 @@
 		  </ul>
 		  <div class="status getuserstatus text-center"></div>
         </div>
-        <div class="col-lg-4">
+        <div class="col-lg-3">
 		  <h2 class="text-center">Pool Data</h2>
 		  <ul class="list-group">
 			<li class="list-group-item"><b>Workers:</b> <span class="workers"></span></li>
@@ -130,11 +121,22 @@
 		  </ul>
 		  <div class="status getpoolstatus text-center"></div>
        </div>
-        <div class="col-lg-4">
+        <div class="col-lg-3">
           <h2 class="text-center ">Worker Data</h2>
           <ul class="list-group workersData"></ul>
 		  <div class="status getuserworkers text-center"></div>
         </div>
+		<div class="col-lg-3">
+			<div class="payout">
+				<h2 class="text-center ">Current Balance</h2>
+				<ul class="list-unstyled">
+					<li class="list-group-item text-success tooltipped" data-toggle="tooltip" title="Valid blocks that you can payout with"><label>Confirmed:</label> <span class="payout-confirmed"></span></li>
+					<li class="list-group-item text-warning tooltipped" data-toggle="tooltip" title="Blocks found that have been credited to your account, but have not been validated. These may turn into orphan blocks."><label>Unconfirmed:</label> <span class="payout-unconfirmed"></span></li>
+					<li class="list-group-item text-danger tooltipped" data-toggle="tooltip" title="Orphaned transaction are transactions that are invalid. They're basically dead blocks that have no value. Wasted cycles."><label>Orphaned:</label> <span class="payout-orphaned"></span></li>
+				</ul>
+				<div class="status getuserbalance text-center"></div>
+			</div>
+		</div>
       </div>
 
       <hr>
@@ -163,14 +165,10 @@
 			};
 			
 			var timers = {
-				monitors : {
-					user : undefined,
-					pool : undefined,
-					worker : undefined
-				},
 				getuserstatus : undefined,
 				getpoolstatus : undefined,
-				getuserworkers : undefined
+				getuserworkers : undefined,
+				getuserbalance : undefined
 			};
 			
 			var objCache = {
@@ -181,7 +179,8 @@
 			var errorTracker = {
 				getuserstatus : 0,
 				getpoolstatus : 0,
-				getuserworkers : 0
+				getuserworkers : 0,
+				getuserbalance : 0
 			};
 			
 			$(function(){
@@ -189,12 +188,13 @@
 				$('#stop').click(function(){
 					settings.monitorEnabled = false;
 					msg("Info","Stopping Monitoring..","info");
-					clearInterval(timers.monitors.user);
-					clearInterval(timers.monitors.pool);
-					clearInterval(timers.monitors.workers);
-					clearInterval(timers.getuserstatus);
-					clearInterval(timers.getpoolstatus);
-					clearInterval(timers.getuserworkers);
+					for(prop in timers){
+						if(errorTracker.hasOwnProperty(prop)){
+							clearInterval(prop);
+							var refreshTimer = $('.'+prop).data('refreshTimer');
+							clearTimeout(refreshTimer);
+						}
+					}
 					
 					objCache.monitorForm.slideDown();
 					objCache.monitorOutput.slideUp();
@@ -207,10 +207,14 @@
 					var poolUrl = $("input[name='poolUrl']").val();
 					
 					if(apiKey && poolUrl){
+						settings.monitorEnabled = true;
+						
 						// Reset error count from previous runs..
-						errorTracker.getuserstatus = 0;
-						errorTracker.getpoolstatus = 0;
-						errorTracker.getuserworkers = 0;
+						for(prop in errorTracker){
+							if(errorTracker.hasOwnProperty(prop)){
+								prop = 0;
+							}
+						}
 						
 						var refreshRate = $("select[name='refreshRate']").val();
 						
@@ -224,12 +228,15 @@
 						msg("Ohz Noz!","You didn't fill out the form..","error");
 					}
 				});
+				
+				$('.tooltipped').tooltip();
 			});
 			
 			var startAllMonitors = function(url){				
 				sendApiRequest(url, "getuserstatus", parseUserData);
 				sendApiRequest(url, "getpoolstatus", parsePoolData);
 				sendApiRequest(url, "getuserworkers", parseWorkerData);
+				sendApiRequest(url, "getuserbalance", parseUserBalance);
 			}
 			
 			var sendApiRequest = function(url, action,callback){
@@ -261,6 +268,8 @@
 						feedback.doneWorking(action);
 						errorTracker[action]++;
 						
+						feedback.error(action);
+						
 						if(errorTracker[action] >= settings.errorLimit ){
 							$('#stop').click();
 							$.pnotify_remove_all();
@@ -269,13 +278,15 @@
 					},
 					dataType : "json"
 				});
+				
 				$.when(dfd).always(function(){
-					setTimeout(function(){
+					var refreshTimer = setTimeout(function(){
 						if(settings.monitorEnabled){
 							sendApiRequest(url, action, callback);
 						}
 					}, $(document.body).data('refreshRate'));
 					
+					$('.'+action).data('refreshTimer',refreshTimer);
 				});
 			}
 			
@@ -314,11 +325,25 @@
 					var workers = data.getuserworkers.data;
 					$.each(workers, function(i,v){
 						var $work = $(emptyWorker).clone();
+						if(v.hashrate == 0){
+							$work.addClass('alert-danger');
+						} else {
+							$work.addClass('alert-success');
+						}
 						$work.find('.workerLbl').text(v.username);
 						$work.find('.workerHashRate').text(formatData.hashRate(v.hashrate));
 						$workersData.append($work);
 					});
 
+				}
+			}
+			
+			var parseUserBalance = function(data){
+				if(data != undefined && typeof data == 'object'){
+					var base = data.getuserbalance.data;
+					setData('.payout-confirmed', base.confirmed);
+					setData('.payout-unconfirmed', base.unconfirmed);
+					setData('.payout-orphaned', base.orphaned);
 				}
 			}
 			
@@ -361,11 +386,20 @@
 					if(timers[action] == undefined){
 						timers[action] = setInterval(function(){
 							var time = $(document.body).data(action);
-							$('.'+action).text(" Updated. Next update in " + formatData.time(time) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
-							$(document.body).data(action, --time);
+							if(time > 0){
+								$('.'+action).text(" Updated. Next update in " + formatData.time(time) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
+								$(document.body).data(action, --time);
+							} else {
+								$('.'+action).text(" Updated. Next update in " + formatData.time(0) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
+								clearInterval(timers[action]);
+							}
 						},
 						1000);
 					}
+				},
+				error : function(action){
+					$('.'+action).text("Opps, bad things..").prepend("<span class='glyphicon glyphicon-warning-sign'></span> ");
+					clearInterval(timers[action]);
 				}
 			}
 			
