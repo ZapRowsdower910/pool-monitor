@@ -93,8 +93,16 @@
 					
 					<div class="col-lg-2">
 						<div class="form-group">
+							<div class="checkbox">
+								<label>
+									<input type="checkbox" name="store" checked="checked" value="true">
+									Save for next time?
+								</label>
+							</div>
+
 							<button type="button" name="removePool" class="btn btn-danger remove-pool" disabled="disabled">Remove Pool</button>
 						</div>
+						
 					</div>
 					
 				</div>
@@ -105,6 +113,7 @@
 						<button type="subtmit" class="btn btn-primary btn-lg" id="start">Start monitoring! &raquo;</button>
 						<button type="button" class="btn btn-primary btn-lg" id="stop" disabled="disabled">Stop monitoring&raquo;</button>
 						<button type="button" class="btn btn-success btn-lg add-pool" >Add another pool</button>
+						<button type="button" class="btn btn-danger btn-lg nuke-cookies" ><span class="glyphicon glyphicon-fire"></span> Nuke Stored Pools!</button>
 					</p>
 				</div>
 			</div>
@@ -134,6 +143,7 @@
         <script src="includes/js/main.js"></script>
 		
 		<script src="includes/js/jquery.pnotify.min.js"></script>
+		<script src="includes/js/jquery.cookie.js"></script>
 		
 		<script>
 			var settings = {
@@ -147,14 +157,28 @@
 				btns : {
 					addPool : $('.add-pool'),
 					start : $('#start'),
-					stop : $('#stop')
+					stop : $('#stop'),
+					nuke : $('.nuke-cookies')
 				}
 			};
 
 			var poolTemplate = '';
 			
 			$(function(){
-			
+				$.cookie.json = true;
+				var cookieData = $.cookie('poolStorage');
+				if(cookieData != undefined){
+					$.each(cookieData, function(k,v){
+						methods.poolFactory(k,v);
+					});
+					
+				}
+				
+				objCache.btns.nuke.click(function(){
+					$.removeCookie('poolStorage');
+					msg("Let the world burn..", "Stored pool data has been cleared.", "success");
+				});
+				
 				$.ajax({
 					'url':'monitorRow.html', 
 					'success' : function(html){
@@ -227,19 +251,27 @@
 			var methods = {
 				parsePools : function(){
 					var $pools = $('.pool');
+					var poolStorage = [];
 					
 					$.each($pools, function(i,v){
 						var poolObj = methods.getPoolObj($(v));
+						if(poolObj.store){
+							poolStorage.push(poolObj);
+						}
+						
 						if(poolObj != undefined){
 							methods.startMonitoringPool(poolObj);
 						}
 					});
+					
+					$.cookie('poolStorage',poolStorage, {expires : 30});
 					
 				},
 				getPoolObj : function($el){
 					var apiKey = $el.find("input[name='apiKey']").val();
 					var poolUrl = $el.find("input[name='poolUrl']").val();
 					var poolLabel = $el.find("input[name='poolLabel']").val();
+					var store = $el.find("input[name='store']:checked").val() || false;
 					
 					if(apiKey && poolUrl){
 						settings.monitorEnabled = true;
@@ -247,11 +279,14 @@
 						var url = poolUrl + '/index.php?page=api&api_key=' + apiKey;
 						var refreshRate = $el.find("select[name='refreshRate']").val();
 						return {
+							'poolUrl' : poolUrl,
+							'apiKey' : apiKey,
 							'url' : url,
 							'refreshRate' : refreshRate,
 							'id' : 'pool-' + Math.floor(Math.random(1, 100000) * 100000),
 							'errorCount' : 0,
-							'label' : poolLabel
+							'label' : poolLabel,
+							'store' : store
 						};
 
 					} else {
@@ -260,7 +295,6 @@
 					}
 				},
 				startMonitoringPool : function(poolObj){
-					console.log('start', poolObj);
 					$.pnotify_remove_all();
 					msg("Time to work", "Monitoring has started.","success");
 					$.each(msgMapping, function(k,v){
@@ -268,7 +302,6 @@
 					});
 				},
 				sendApiRequest : function(poolObj,action,callback){
-					console.log('send ',poolObj);
 					var url = poolObj.url + '&action=' + action;
 					
 					var $poolOut = objCache.monitorOutput.find('.pool-out.' + poolObj.id);
@@ -345,6 +378,27 @@
 						$pools.find(".remove-pool").removeAttr('disabled');
 					} else {
 						$pools.find(".remove-pool").attr('disabled','disabled');
+					}
+					
+				},
+				poolFactory : function(index,poolObj){
+					
+					var $clone;
+					if(index == 0){
+						$clone = $('.pool:first');
+					} else {
+						$clone = $('.pool:first').clone(true);
+					}
+					
+					$clone.find("input[name='apiKey']").val(poolObj.apiKey);
+					$clone.find("input[name='poolUrl']").val(poolObj.poolUrl);
+					$clone.find("input[name='poolLabel']").val(poolObj.label);
+					$clone.find("input[name='store']").removeAttr('checked');
+					$clone.find("select[name='refreshRate'] option[value='"+poolObj.refreshRate+"']").attr('selected','selected');
+					
+					if(index > 0){
+						objCache.monitorForm.append($clone);
+						methods.scanRemovePoolBtn();
 					}
 					
 				}
