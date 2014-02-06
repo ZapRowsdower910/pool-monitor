@@ -14,7 +14,8 @@
             body {
                 padding-top: 50px;
                 padding-bottom: 20px;
-            }
+			}
+			.group-heading h4 {margin:0 !important;}
         </style>
         <link rel="stylesheet" href="includes/css/bootstrap-theme.min.css">
         <link rel="stylesheet" href="includes/css/main.css">
@@ -84,11 +85,15 @@
 								<option value="900000">15 minute</option>
 							</select>
 						</div>
-						<div class="col-lg-2">
-							<div class="form-group">
-								<label for=""></label>
-								<button type="button" class="btn btn-danger remove-pool" disabled="disabled">Remove Pool</button>
-							</div>
+						<div class="form-group">
+							<label for="poolLabel">Label:</label>
+							<input type="text" name="poolLabel" placeholder="Pool Label" class="form-control" value="Nick's Hash-Faster">
+						</div>
+					</div>
+					
+					<div class="col-lg-2">
+						<div class="form-group">
+							<button type="button" name="removePool" class="btn btn-danger remove-pool" disabled="disabled">Remove Pool</button>
 						</div>
 					</div>
 					
@@ -136,13 +141,6 @@
 				monitorEnabled : true
 			};
 			
-			var timers = {
-				getuserstatus : undefined,
-				getpoolstatus : undefined,
-				getuserworkers : undefined,
-				getuserbalance : undefined
-			};
-			
 			var objCache = {
 				monitorForm : $('#monitorForm'),
 				monitorOutput : $('#monitorOutput'),
@@ -152,15 +150,7 @@
 					stop : $('#stop')
 				}
 			};
-			
-			var errorTracker = {
-				getuserstatus : 0,
-				getpoolstatus : 0,
-				getuserworkers : 0,
-				getuserbalance : 0
-			};
-			
-			var poolOutClassWhiteList = ["row", "pool-out"];
+
 			var poolTemplate = '';
 			
 			$(function(){
@@ -213,14 +203,6 @@
 							});
 						});
 						
-						// for(prop in timers){
-							// if(errorTracker.hasOwnProperty(prop)){
-								// clearInterval(prop);
-								// var refreshTimer = $('.'+prop).data('refreshTimer');
-								// clearTimeout(refreshTimer);
-							// }
-						// }
-						
 						objCache.monitorForm.slideDown();
 						objCache.monitorOutput.slideUp();
 						
@@ -257,16 +239,10 @@
 				getPoolObj : function($el){
 					var apiKey = $el.find("input[name='apiKey']").val();
 					var poolUrl = $el.find("input[name='poolUrl']").val();
+					var poolLabel = $el.find("input[name='poolLabel']").val();
 					
 					if(apiKey && poolUrl){
 						settings.monitorEnabled = true;
-						
-						// Reset error count from previous runs..
-						for(prop in errorTracker){
-							if(errorTracker.hasOwnProperty(prop)){
-								prop = 0;
-							}
-						}
 						
 						var url = poolUrl + '/index.php?page=api&api_key=' + apiKey;
 						var refreshRate = $el.find("select[name='refreshRate']").val();
@@ -274,7 +250,8 @@
 							'url' : url,
 							'refreshRate' : refreshRate,
 							'id' : 'pool-' + Math.floor(Math.random(1, 100000) * 100000),
-							'errorCount' : 0
+							'errorCount' : 0,
+							'label' : poolLabel
 						};
 
 					} else {
@@ -300,6 +277,7 @@
 						var $poolOut = $(poolTemplate).clone();
 						
 						$poolOut.addClass(poolObj.id);
+						$poolOut.find('.panel-title').text(poolObj.label);
 						
 						objCache.monitorOutput.append($poolOut);
 					}
@@ -400,14 +378,14 @@
 				parseWorkerData: function(data,$poolOut){
 					if(data != undefined && typeof data == 'object'){
 						var $workersData = $poolOut.find('.workersData');
-						$workersData.children('.worker').remove()
+						$workersData.children('.worker:not(.group-heading)').remove()
 						var workers = data.getuserworkers.data;
 						$.each(workers, function(i,v){
 							var $work = $(emptyWorker).clone();
 							if(v.hashrate == 0){
-								$work.addClass('alert-warning');
+								$work.addClass('list-group-item-warning');
 							} else {
-								$work.addClass('alert-success');
+								$work.addClass('list-group-item-success');
 							}
 							$work.find('.workerLbl').text(v.username);
 							$work.find('.workerHashRate').text(formatData.hashRate(v.hashrate));

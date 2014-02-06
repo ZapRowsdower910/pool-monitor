@@ -14,7 +14,8 @@
             body {
                 padding-top: 50px;
                 padding-bottom: 20px;
-            }
+			}
+			.group-heading h4 {margin:0 !important;}
         </style>
         <link rel="stylesheet" href="includes/css/bootstrap-theme.min.css">
         <link rel="stylesheet" href="includes/css/main.css">
@@ -59,8 +60,8 @@
 			</div>
 		</div>
 		<div class="row">
-			<form role="form" id="monitorDetails" >
-				<div class="monitorForm">
+			<form role="form" id="monitorForm">
+				<div class="pool row">
 					<div class="col-lg-6">
 						<div class="form-group">
 							<label for="poolUrl">Pool URL:</label>
@@ -84,12 +85,27 @@
 								<option value="900000">15 minute</option>
 							</select>
 						</div>
+						<div class="form-group">
+							<label for="poolLabel">Label:</label>
+							<input type="text" name="poolLabel" placeholder="Pool Label" class="form-control" value="Nick's Hash-Faster">
+						</div>
 					</div>
+					
+					<div class="col-lg-2">
+						<div class="form-group">
+							<button type="button" name="removePool" class="btn btn-danger remove-pool" disabled="disabled">Remove Pool</button>
+						</div>
+					</div>
+					
 				</div>
 			</div>
 			<div class="row">
 				<div class="col-lg-12">
-					<p><button type="subtmit" class="btn btn-primary btn-lg" id="start">Start monitoring! &raquo;</button> <button type="button" class="btn btn-primary btn-lg" id="stop">Stop monitoring&raquo;</button></p>
+					<p>
+						<button type="subtmit" class="btn btn-primary btn-lg" id="start">Start monitoring! &raquo;</button>
+						<button type="button" class="btn btn-primary btn-lg" id="stop" disabled="disabled">Stop monitoring&raquo;</button>
+						<button type="button" class="btn btn-success btn-lg add-pool" >Add another pool</button>
+					</p>
 				</div>
 			</div>
 		</form>
@@ -99,46 +115,6 @@
 
     <div class="container hidden" id="monitorOutput">
       <!-- Example row of columns -->
-      <div class="row">
-        <div class="col-lg-3">
-          <h2 class="text-center">User Data</h2>
-          <ul class="list-group">
-			<li class="list-group-item"><b>Username:</b> <span class="username"></span></li>
-			<li class="list-group-item"><b>Valid Shares:</b> <span class="validshares"></span></li>
-			<li class="list-group-item"><b>Invalid Shares:</b> <span class="invalidshares"></span></li>
-			<li class="list-group-item"><b>Hash Rate:</b> <span class="hashrate"></span></li>
-			<li class="list-group-item"><b>Share Rate:</b> <span class="sharerate"></span></li>
-		  </ul>
-		  <div class="status getuserstatus text-center"></div>
-        </div>
-        <div class="col-lg-3">
-		  <h2 class="text-center">Pool Data</h2>
-		  <ul class="list-group">
-			<li class="list-group-item"><b>Workers:</b> <span class="workers"></span></li>
-			<li class="list-group-item"><b>Hashrate:</b> <span class="poolHashrate"></span></li>
-			<li class="list-group-item"><b>Network Difficulty:</b> <span class="difficulty"></span></li>
-			<li class="list-group-item"><b>Next Block in:</b> <span class="nextblock"></span></li>
-			<li class="list-group-item"><b>Last Block was:</b> <span class="lastblock"></span></li>
-		  </ul>
-		  <div class="status getpoolstatus text-center"></div>
-       </div>
-        <div class="col-lg-3">
-          <h2 class="text-center ">Worker Data</h2>
-          <ul class="list-group workersData"></ul>
-		  <div class="status getuserworkers text-center"></div>
-        </div>
-		<div class="col-lg-3">
-			<div class="payout">
-				<h2 class="text-center ">Current Balance</h2>
-				<ul class="list-unstyled">
-					<li class="list-group-item text-success tooltipped" data-toggle="tooltip" title="Valid blocks that you can payout with"><label>Confirmed:</label> <span class="payout-confirmed"></span></li>
-					<li class="list-group-item text-warning tooltipped" data-toggle="tooltip" title="Blocks found that have been credited to your account, but have not been validated. These may turn into orphan blocks."><label>Unconfirmed:</label> <span class="payout-unconfirmed"></span></li>
-					<li class="list-group-item text-danger tooltipped" data-toggle="tooltip" title="Orphaned transaction are transactions that are invalid. They're basically dead blocks that have no value. Wasted cycles."><label>Orphaned:</label> <span class="payout-orphaned"></span></li>
-				</ul>
-				<div class="status getuserbalance text-center"></div>
-			</div>
-		</div>
-      </div>
 
       <hr>
     </div> <!-- /container -->        
@@ -165,191 +141,273 @@
 				monitorEnabled : true
 			};
 			
-			var timers = {
-				getuserstatus : undefined,
-				getpoolstatus : undefined,
-				getuserworkers : undefined,
-				getuserbalance : undefined
-			};
-			
 			var objCache = {
-				monitorForm : $('.monitorForm'),
-				monitorOutput : $('#monitorOutput')
+				monitorForm : $('#monitorForm'),
+				monitorOutput : $('#monitorOutput'),
+				btns : {
+					addPool : $('.add-pool'),
+					start : $('#start'),
+					stop : $('#stop')
+				}
 			};
-			
-			var errorTracker = {
-				getuserstatus : 0,
-				getpoolstatus : 0,
-				getuserworkers : 0,
-				getuserbalance : 0
-			};
+
+			var poolTemplate = '';
 			
 			$(function(){
-				
-				$('#stop').click(function(){
-					settings.monitorEnabled = false;
-					msg("Info","Stopping Monitoring..","info");
-					for(prop in timers){
-						if(errorTracker.hasOwnProperty(prop)){
-							clearInterval(prop);
-							var refreshTimer = $('.'+prop).data('refreshTimer');
-							clearTimeout(refreshTimer);
-						}
-					}
-					
-					objCache.monitorForm.slideDown();
-					objCache.monitorOutput.slideUp();
+			
+				$.ajax({
+					'url':'monitorRow.html', 
+					'success' : function(html){
+						poolTemplate = html;
+					},
+					'dataType': 'html'
 				});
 			
-				$('#monitorDetails').submit(function(e){
+				$('.add-pool').click(function(){
+					var $clone = objCache.monitorForm.children('.pool:first').clone();
+					$clone.find("input[type='text']").val("");
+					objCache.monitorForm.append($clone);
+					methods.scanRemovePoolBtn();
+				});
+				
+				$('#monitorForm').on('click','.remove-pool', function(){
+					$(this).parents('.pool').remove();
+					methods.scanRemovePoolBtn();
+				});
+				
+				objCache.btns.stop.click(function(){
+					if(settings.monitorEnabled){
+						// Re-enable monitor flag
+						settings.monitorEnabled = false;
+						// toggle button states
+						objCache.btns.stop.attr('disabled','disabled');
+						objCache.btns.start.removeAttr('disabled');
+						objCache.btns.addPool.removeAttr('disabled');
+						// notify end user
+						msg("Info","Stopping Monitoring..","info");
+						
+						// clean up pool output
+						var $poolOut = $('.pool-out');
+						$.each($poolOut, function(i,v){
+							var dataz = $(v).data();
+							$.each(dataz, function(i,v){
+								if(v != 'poolObj'){
+									clearInterval(v.timer);
+									clearInterval(v.refreshTimer);
+									// $.each(i, function(k,m){
+										// if(k == 'timer'){
+											// clearInterval(k);
+										// }
+									// });
+								}
+							});
+						});
+						
+						objCache.monitorForm.slideDown();
+						objCache.monitorOutput.slideUp();
+						
+						$poolOut.remove();
+					}
+				});
+			
+				objCache.monitorForm.submit(function(e){
 					e.preventDefault();
 					
-					var apiKey = $("input[name='apiKey']").val();
-					var poolUrl = $("input[name='poolUrl']").val();
+					objCache.btns.stop.removeAttr('disabled');
+					objCache.btns.start.attr('disabled','disabled');
+					objCache.btns.addPool.attr('disabled','disabled');
 					
-					if(apiKey && poolUrl){
-						settings.monitorEnabled = true;
-						
-						// Reset error count from previous runs..
-						for(prop in errorTracker){
-							if(errorTracker.hasOwnProperty(prop)){
-								prop = 0;
-							}
-						}
-						
-						var refreshRate = $("select[name='refreshRate']").val();
-						
-						$(document.body).data('refreshRate',refreshRate);
-						
-						var url = poolUrl + '/index.php?page=api&api_key=' + apiKey;
-						startAllMonitors(url);
-						
-						msg("Info","Starting Monitoring..","info");
-					} else {
-						msg("Ohz Noz!","You didn't fill out the form..","error");
-					}
+					methods.parsePools();
 				});
 				
 				$('.tooltipped').tooltip();
 			});
 			
-			var startAllMonitors = function(url){				
-				sendApiRequest(url, "getuserstatus", parseUserData);
-				sendApiRequest(url, "getpoolstatus", parsePoolData);
-				sendApiRequest(url, "getuserworkers", parseWorkerData);
-				sendApiRequest(url, "getuserbalance", parseUserBalance);
-			}
-			
-			var sendApiRequest = function(url, action,callback){
-				url += '&action=' + action;
-				feedback.working(action);
-				var dfd = $.ajax({
-					"type":"post",
-					"url" : "proxy.cfm",
-					data: {"url":url},
-					success: function(data){
-						var $monitorForm = objCache.monitorForm;
-						
-						$monitorForm.slideUp();
-						
-						var $monitorOutput = objCache.monitorOutput;
-						if($monitorOutput.length && $monitorOutput.hasClass('hidden')){
-							$monitorOutput.removeClass('hidden').slideDown();
-						}
-						
-						if(callback != undefined && typeof callback == 'function'){
-							callback.call(this,data);
-						}
-						
-						feedback.doneWorking(action);
-						errorTracker[action] = 0;
-					},
-					error : function(x,h,r){
-						msg("Ohz Noz!","We hit an error on refresh! ["+r+"]","error");
-						feedback.doneWorking(action);
-						errorTracker[action]++;
-						
-						feedback.error(action);
-						
-						if(errorTracker[action] >= settings.errorLimit ){
-							$('#stop').click();
-							$.pnotify_remove_all();
-							msg("Epic Fail","Consecutive error count of ["+settings.errorLimit+"] reached. Disabling Monitoring, try again later.","error");
-						}
-					},
-					dataType : "json"
-				});
-				
-				$.when(dfd).always(function(){
-					var refreshTimer = setTimeout(function(){
-						if(settings.monitorEnabled){
-							sendApiRequest(url, action, callback);
-						}
-					}, $(document.body).data('refreshRate'));
+			// TODO consider that poolObj.id isn't generateed unique. May need to modify
+			var methods = {
+				parsePools : function(){
+					var $pools = $('.pool');
 					
-					$('.'+action).data('refreshTimer',refreshTimer);
-				});
-			}
-			
-			var parseUserData = function(data){
-				if(data != undefined && typeof data == 'object'){
-					var base = data.getuserstatus.data;
-					setData('.username', base.username);
-					setData('.validshares', base.shares.valid);
-					setData('.invalidshares', base.shares.invalid);
-					setData('.sharerate', base.sharerate);
-					setData('.hashrate', formatData.hashRate(base.hashrate));
+					$.each($pools, function(i,v){
+						var poolObj = methods.getPoolObj($(v));
+						if(poolObj != undefined){
+							methods.startMonitoringPool(poolObj);
+						}
+					});
+					
+				},
+				getPoolObj : function($el){
+					var apiKey = $el.find("input[name='apiKey']").val();
+					var poolUrl = $el.find("input[name='poolUrl']").val();
+					var poolLabel = $el.find("input[name='poolLabel']").val();
+					
+					if(apiKey && poolUrl){
+						settings.monitorEnabled = true;
+						
+						var url = poolUrl + '/index.php?page=api&api_key=' + apiKey;
+						var refreshRate = $el.find("select[name='refreshRate']").val();
+						return {
+							'url' : url,
+							'refreshRate' : refreshRate,
+							'id' : 'pool-' + Math.floor(Math.random(1, 100000) * 100000),
+							'errorCount' : 0,
+							'label' : poolLabel
+						};
+
+					} else {
+						// Todo - change this to form element feedback error
+						msg("Ohz Noz!","You didn't fill out the form..","error");
+					}
+				},
+				startMonitoringPool : function(poolObj){
+					console.log('start', poolObj);
+					$.pnotify_remove_all();
+					msg("Time to work", "Monitoring has started.","success");
+					$.each(msgMapping, function(k,v){
+						methods.sendApiRequest(poolObj,k,v);
+					});
+				},
+				sendApiRequest : function(poolObj,action,callback){
+					console.log('send ',poolObj);
+					var url = poolObj.url + '&action=' + action;
+					
+					var $poolOut = objCache.monitorOutput.find('.pool-out.' + poolObj.id);
+					
+					if($poolOut.length < 1){
+						var $poolOut = $(poolTemplate).clone();
+						
+						$poolOut.addClass(poolObj.id);
+						$poolOut.find('.panel-title').text(poolObj.label);
+						
+						objCache.monitorOutput.append($poolOut);
+					}
+					
+					$poolOut.data('poolObj', poolObj);
+					
+					feedback.working(action, $poolOut, poolObj);
+					var dfd = $.ajax({
+						"type":"post",
+						"url" : "proxy.cfm",
+						data: {"url":url},
+						success: function(data){
+							// reset consecutive error count
+							poolObj.errorCount = 0;
+							
+							// Hide pool form
+							objCache.monitorForm.slideUp();;
+							
+							// Show monitoring output
+							objCache.monitorOutput.removeClass('hidden').slideDown();
+							
+							// parse data
+							if(callback != undefined && typeof callback == 'function'){
+								callback.call(this,data,$poolOut,poolObj);
+							}
+							
+							// update end user 
+							feedback.doneWorking(action, $poolOut);
+						},
+						error : function(x,h,r){
+							feedback.error(action, $poolOut);
+							
+							if(++poolObj.errorCount >= settings.errorLimit ){
+								if(settings.monitorEnabled){
+									$('#stop').click();
+									$.pnotify_remove_all();
+									msg("Epic Fail","Consecutive error count of ["+settings.errorLimit+"] reached, disabling Monitoring. Review your settings or try again later.","fatal");
+								}
+							} else {
+								msg("Ohz Noz!","We hit an error on refresh! ["+r+"]","error");
+							}
+						},
+						dataType : "json"
+					});
+					
+					$.when(dfd).always(function(){
+						var refreshTimer = setTimeout(function(){
+							if(settings.monitorEnabled){
+								methods.sendApiRequest(poolObj, action, callback);
+							}
+						}, poolObj.refreshRate);
+						
+						var actionPayload = $poolOut.data(action);
+						// If a mass error happend its possible that monitoring has been disabled. This will
+						// cause the $poolOut element to be destoryed and no actionPayload will exist.
+						if(actionPayload != undefined){
+							actionPayload.refreshTimer = refreshTimer;
+							$poolOut.data(action,actionPayload);
+						}
+					});
+				},
+				scanRemovePoolBtn : function(){
+					var $pools = $('.pool');
+					if($pools.length > 1){
+						$pools.find(".remove-pool").removeAttr('disabled');
+					} else {
+						$pools.find(".remove-pool").attr('disabled','disabled');
+					}
+					
 				}
-			}
+			};
 			
-			var parsePoolData = function(data){
-				if(data != undefined && typeof data == 'object'){
-					var base = data.getpoolstatus.data;
-					setData('.workers', base.workers);
-					setData('.poolHashrate', formatData.hashRate(base.hashrate));
-					setData('.difficulty', base.networkdiff);
-					setData('.nextblock', formatData.time(base.esttime));
-					setData('.lastblock', formatData.time(base.timesincelast));
-					
-					if(base.timesincelast < 30){
-						msg("Yay!","A block was found recently!","success");
+			var parseMgs = {
+				parseUserData : function(data,$poolOut){
+					if(data != undefined && typeof data == 'object'){
+						var base = data.getuserstatus.data;
+						setData($poolOut, '.username', base.username);
+						setData($poolOut, '.validshares', base.shares.valid);
+						setData($poolOut, '.invalidshares', base.shares.invalid);
+						setData($poolOut, '.sharerate', base.sharerate);
+						setData($poolOut, '.hashrate', formatData.hashRate(base.hashrate));
+					}
+				},
+				parsePoolData: function(data,$poolOut){
+					if(data != undefined && typeof data == 'object'){
+						var base = data.getpoolstatus.data;
+						setData($poolOut, '.workers', base.workers);
+						setData($poolOut, '.poolHashrate', formatData.hashRate(base.hashrate));
+						setData($poolOut, '.difficulty', base.networkdiff);
+						setData($poolOut, '.nextblock', formatData.time(base.esttime));
+						setData($poolOut, '.lastblock', formatData.time(base.timesincelast));
+						
+						if(base.timesincelast < 30){
+							msg("Yay!","A block was found recently!","success");
+						}
+					}
+				},
+				parseWorkerData: function(data,$poolOut){
+					if(data != undefined && typeof data == 'object'){
+						var $workersData = $poolOut.find('.workersData');
+						$workersData.children('.worker:not(.group-heading)').remove()
+						var workers = data.getuserworkers.data;
+						$.each(workers, function(i,v){
+							var $work = $(emptyWorker).clone();
+							if(v.hashrate == 0){
+								$work.addClass('list-group-item-warning');
+							} else {
+								$work.addClass('list-group-item-success');
+							}
+							$work.find('.workerLbl').text(v.username);
+							$work.find('.workerHashRate').text(formatData.hashRate(v.hashrate));
+							$workersData.append($work);
+						});
+
+					}
+				},
+				parseUserBalance: function(data,$poolOut){
+					if(data != undefined && typeof data == 'object'){
+						var base = data.getuserbalance.data;
+						setData($poolOut, '.payout-confirmed', base.confirmed);
+						setData($poolOut, '.payout-unconfirmed', base.unconfirmed);
+						setData($poolOut, '.payout-orphaned', base.orphaned);
 					}
 				}
-			}
+			};
 			
 			var emptyWorker = '<li class="list-group-item worker"><b class="workerLbl"></b> <span class="workerHashRate"></span></li>';
 			
-			var parseWorkerData = function(data){
-				if(data != undefined && typeof data == 'object'){
-					var $workersData = $('.workersData');
-					$workersData.children('.worker').remove()
-					var workers = data.getuserworkers.data;
-					$.each(workers, function(i,v){
-						var $work = $(emptyWorker).clone();
-						if(v.hashrate == 0){
-							$work.addClass('alert-warning');
-						} else {
-							$work.addClass('alert-success');
-						}
-						$work.find('.workerLbl').text(v.username);
-						$work.find('.workerHashRate').text(formatData.hashRate(v.hashrate));
-						$workersData.append($work);
-					});
-
-				}
-			}
-			
-			var parseUserBalance = function(data){
-				if(data != undefined && typeof data == 'object'){
-					var base = data.getuserbalance.data;
-					setData('.payout-confirmed', base.confirmed);
-					setData('.payout-unconfirmed', base.unconfirmed);
-					setData('.payout-orphaned', base.orphaned);
-				}
-			}
-			
-			var setData = function(clazz, val){
-				$(clazz).text(val);
+			var setData = function($poolOut, clazz, val){
+				$poolOut.find(clazz).text(val);
 			}
 			
 			var formatData = {
@@ -372,48 +430,98 @@
 				}
 			};
 			
+			/**
+			action = {
+				'timer' : timer interval for count down clock,
+				'refreshTimer' : timer for next ajax request
+				'countDown' : current value of countdown clock,
+				'refreshRate' : current refresh interval,
+			}
+			*/
 			var feedback = {
-				working : function(action){
-					if(timers[action] != undefined){
-						clearInterval(timers[action]);
-						timers[action] = undefined;
+				setupFeedback : function(action, $poolOut, poolObj){
+					var actionPayload = $poolOut.data(action);
+					if(actionPayload == undefined){
+						actionPayload = {
+							'timer' : undefined,
+							'countDown' : poolObj.refreshRate / 1000,
+							'refreshRate' : poolObj.refreshRate,
+							'refreshTimer' : undefined
+						};
+						
+						$poolOut.data(action, actionPayload);
 					}
 					
-					$('.'+action).text("Refreshing data..").prepend("<span class='glyphicon glyphicon-refresh'></span> ");
+					return actionPayload;
 				},
-				doneWorking : function(action){
-					countDownClock = $(document.body).data('refreshRate') / 1000;
-					$(document.body).data(action, countDownClock);
-					if(timers[action] == undefined){
-						timers[action] = setInterval(function(){
-							var time = $(document.body).data(action);
-							if(time > 0){
-								$('.'+action).text(" Updated. Next update in " + formatData.time(time) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
-								$(document.body).data(action, --time);
+				working : function(action, $poolOut, poolObj){
+					// Setup data if this is our first time thru
+					var actionPayload = feedback.setupFeedback(action, $poolOut, poolObj);
+					
+					if(actionPayload.timer != undefined){
+						clearInterval(actionPayload.timer);
+						actionPayload.timer = undefined;
+						$poolOut.data(action, actionPayload);
+					}
+					
+					$poolOut.find('.'+action).text("Refreshing data..").prepend("<span class='glyphicon glyphicon-refresh'></span> ");
+				},
+				doneWorking : function(action, $poolOut){
+					var actionPayload = $poolOut.data(action);
+					
+					if(actionPayload.timer == undefined){
+						actionPayload.countDown = actionPayload.refreshRate / 1000;
+						timer = setInterval(function(){
+							var actionPayload = $poolOut.data(action);
+							if(actionPayload.countDown > 0){
+								$poolOut.find('.'+action).text(" Updated. Next update in " + formatData.time(actionPayload.countDown) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
+								--actionPayload.countDown;
 							} else {
-								$('.'+action).text(" Updated. Next update in " + formatData.time(0) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
-								clearInterval(timers[action]);
+								$poolOut.find('.'+action).text(" Updated. Next update in " + formatData.time(0) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
+								clearInterval(actionPayload.timer);
 							}
+							$poolOut.data(action, actionPayload);
 						},
 						1000);
+						
+						actionPayload.timer = timer;
+						$poolOut.data(action, actionPayload);
 					}
 				},
-				error : function(action){
-					$('.'+action).text("Opps, bad things..").prepend("<span class='glyphicon glyphicon-warning-sign'></span> ");
-					clearInterval(timers[action]);
+				error : function(action, $poolOut){
+					var actionPayload = $poolOut.data(action);
+					$poolOut.find('.'+action).text("Opps, bad things..").prepend("<span class='glyphicon glyphicon-warning-sign'></span> ");
+					if(actionPayload != undefined && actionPayload.timer != undefined){
+						clearInterval(actionPayload.timer);
+						$poolOut.data(action, actionPayload);
+					}
 				}
 			}
 			
 			var msg = function(title,msg,type){
+				var sticky = false;
+				
+				if(type == 'fatal'){
+					type = 'error';
+					sticky = true
+				}
+				
 				$.pnotify({
 					'title':title,
 					'text':msg,
 					'type':type,
 					'history':false,
-					'hide': type == 'error' ? false : true,
+					'hide': !sticky,
 					'styling':'bootstrap'
 				});
 			}
+			
+			var msgMapping = {
+				"getuserstatus" : parseMgs.parseUserData,
+				"getpoolstatus" : parseMgs.parsePoolData,
+				"getuserworkers" : parseMgs.parseWorkerData,
+				"getuserbalance" : parseMgs.parseUserBalance
+			};
 		</script>
 
         <script>
