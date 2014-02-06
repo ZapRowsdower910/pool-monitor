@@ -1,0 +1,79 @@
+<div class="row pool-out">
+	<div class="col-lg-3">
+		<h2 class="text-center">User Data</h2>
+		<ul class="list-group">
+			<li class="list-group-item">
+				<b>Username:</b>
+				<span class="username"/>
+			</li>
+			<li class="list-group-item">
+				<b>Valid Shares:</b>
+				<span class="validshares"/>
+			</li>
+			<li class="list-group-item">
+				<b>Invalid Shares:</b>
+				<span class="invalidshares"/>
+			</li>
+			<li class="list-group-item">
+				<b>Hash Rate:</b>
+				<span class="hashrate"/>
+			</li>
+			<li class="list-group-item">
+				<b>Share Rate:</b>
+				<span class="sharerate"/>
+			</li>
+		</ul>
+		<div class="status getuserstatus text-center"/>
+	</div>
+	<div class="col-lg-3">
+		<h2 class="text-center">Pool Data</h2>
+		<ul class="list-group">
+			<li class="list-group-item">
+				<b>Workers:</b>
+				<span class="workers"/>
+			</li>
+			<li class="list-group-item">
+				<b>Hashrate:</b>
+				<span class="poolHashrate"/>
+			</li>
+			<li class="list-group-item">
+				<b>Network Difficulty:</b>
+				<span class="difficulty"/>
+			</li>
+			<li class="list-group-item">
+				<b>Next Block in:</b>
+				<span class="nextblock"/>
+			</li>
+			<li class="list-group-item">
+				<b>Last Block was:</b>
+				<span class="lastblock"/>
+			</li>
+		</ul>
+		<div class="status getpoolstatus text-center"/>
+	</div>
+	<div class="col-lg-3">
+		<h2 class="text-center ">Worker Data</h2>
+		<ul class="list-group workersData"/>
+		<div class="status getuserworkers text-center"/>
+	</div>
+	<div class="col-lg-3">
+		<div class="payout">
+			<h2 class="text-center ">Current Balance</h2>
+			<ul class="list-unstyled">
+				<li class="list-group-item text-success tooltipped" data-toggle="tooltip" title="Valid blocks that you can payout with">
+					<label>Confirmed:</label>
+					<span class="payout-confirmed"/>
+				</li>
+				<li class="list-group-item text-warning tooltipped" data-toggle="tooltip" title="Blocks found that have been credited to your account, but have not been validated. These may turn into orphan blocks.">
+					<label>Unconfirmed:</label>
+					<span class="payout-unconfirmed"/>
+				</li>
+				<li class="list-group-item text-danger tooltipped" data-toggle="tooltip" title="Orphaned transaction are transactions that are invalid. They're basically dead blocks that have no value. Wasted cycles.">
+					<label>Orphaned:</label>
+					<span class="payout-orphaned"/>
+				</li>
+			</ul>
+			<div class="status getuserbalance text-center"/>
+		</div>
+	</div>
+</div>
