@@ -128,7 +128,17 @@
       <!-- Example row of columns -->
 
       <hr>
-    </div> <!-- /container -->        
+    </div> <!-- /container -->    
+
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-12">
+				<div class="userhashrate-graph"></div>
+				<div class="validrate-graph"></div>
+			</div>
+		
+		</div>
+	</div>
 	
 	<div class="container">
 		<footer>
@@ -144,10 +154,14 @@
         <script src="includes/js/plugins.js"></script>
         <script src="includes/js/main.js"></script>
 		
+		<script src="includes/js/highcharts.js"></script>
 		<script src="includes/js/jquery.pnotify.min.js"></script>
 		<script src="includes/js/jquery.cookie.js"></script>
 		
 		<script>
+			var muleEndPoint = "http://jaypalker:8081";
+			var reportingEndPoint = "workerdata.html";
+			
 			var settings = {
 				errorLimit : 3,
 				monitorEnabled : true
@@ -247,6 +261,8 @@
 				});
 				
 				$('.tooltipped').tooltip();
+				
+				// sreporting.startup();
 			});
 			
 			// TODO consider that poolObj.id isn't generateed unique. May need to modify
@@ -278,7 +294,7 @@
 					if(apiKey && poolUrl){
 						settings.monitorEnabled = true;
 						
-						var url = poolUrl + '/index.php?page=api&api_key=' + apiKey;
+						var url = muleEndPoint + '/givemedata?pool=' + poolUrl + '&api_key=' + apiKey;
 						var refreshRate = $el.find("select[name='refreshRate']").val();
 						return {
 							'poolUrl' : poolUrl,
@@ -302,6 +318,8 @@
 					$.each(msgMapping, function(k,v){
 						methods.sendApiRequest(poolObj,k,v);
 					});
+					
+					reporting.startup(poolObj.url, "getuserstatus");
 				},
 				sendApiRequest : function(poolObj,action,callback){
 					var url = poolObj.url + '&action=' + action;
@@ -553,6 +571,160 @@
 					}
 				}
 			}
+			
+			var reporting = {
+				startup : function(apiUrl, report){
+					apiUrl += "&report=" + report
+					$.ajax({
+						"type":"post",
+						"url" : "proxy.cfm",
+						data : {url:apiUrl},
+						success : function(data){
+							reporting.parseData(data);
+						},
+						error : function(x,h,r){
+							console.error(h,r)
+						},
+						dataType : 'json'
+					});
+				},
+				parseData : function(data){
+					console.log(data);
+					
+					var userData = [];
+					var userEntry = {
+						data : []
+					};
+					
+					var validsData = [];
+					var validsEntry = {
+						name:"Valid Shares",
+						data : []
+					};
+					var invalidsEntry = {
+						name:"Invalid Shares",
+						data : []
+					};
+					$.each(data, function(i,v){
+						reporting.createDataPoint(v,"hashrate",userEntry);
+						reporting.createDataPoint(v,"validshares",validsEntry);
+						reporting.createDataPoint(v,"invalidshares",invalidsEntry);
+					});
+					userData.push(userEntry);
+					console.log(userData);
+					reporting.chartUserData(userData);
+
+					validsData.push(validsEntry);
+					validsData.push(invalidsEntry);
+					console.log(validsData);
+					reporting.chartShares(validsData);
+					
+				},
+				createDataPoint : function(data,key,arraySet){
+					var tempUser = [
+						data.entrydate,
+						data[key]
+					];
+					if(arraySet.name == undefined){
+						arraySet.name = data.username;
+					}
+					arraySet.data.push(tempUser);
+					return arraySet;
+				},
+				chartUserData : function(userData){
+					$('.userhashrate-graph').highcharts({
+						chart: {
+							zoomType: 'x',
+							spacingRight: 20
+						},
+						title : {
+							'text': 'User Hashrate'
+						},
+						subtitle :{
+							'text':'Click and drag to zoom in!'
+						},
+						xAxis : {
+							'title':{
+								'text':'Time'
+							},
+							'maxZoom' : 1 * 3600000,
+							'type':'datetime'
+						},
+						yAxis : {
+							'title' : {
+								'text': 'Hashrate (Khs)'
+							}
+						},
+						tooltip: {
+							valueSuffix: 'Khs'
+						},
+						plotOptions: {
+							series: {
+								marker: {
+									enabled: false,
+									states: {
+										hover: {
+											enabled: true
+										}
+									}
+								}
+							}
+						},
+						legend: {
+							layout: 'vertical',
+							align: 'right',
+							verticalAlign: 'middle',
+							borderWidth: 0
+						},
+						series:userData
+					});
+				},
+				chartShares : function(validsData){
+					$('.validrate-graph').highcharts({
+						chart: {
+							zoomType: 'x',
+							spacingRight: 20
+						},
+						title : {
+							'text': 'Valid Hashes'
+						},
+						subtitle :{
+							'text':'Click and drag to zoom in!'
+						},
+						xAxis : {
+							'title':{
+								'text':'Time'
+							},
+							'maxZoom' : 1 * 3600000,
+							'type':'datetime'
+						},
+						yAxis : {
+							'title' : {
+								'text': 'Shares'
+							}
+						},
+						plotOptions: {
+							series: {
+								marker: {
+									enabled: false,
+									states: {
+										hover: {
+											enabled: true
+										}
+									}
+								}
+							}
+						},
+						legend: {
+							layout: 'vertical',
+							align: 'right',
+							verticalAlign: 'middle',
+							borderWidth: 0
+						},
+						series:validsData
+					});
+				}
+			};
 			
 			var msg = function(title,msg,type){
 				var sticky = false;
