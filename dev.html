@@ -66,11 +66,20 @@
 					<div class="col-lg-6">
 						<div class="form-group">
 							<label for="poolUrl">Pool URL:</label>
-							<input type="text" name="poolUrl" placeholder="Pool URL" class="form-control" value="https://doge.hashfaster.com">
+							<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default dropdown-toggle protocol" data-toggle="dropdown" data-value="https">HTTPS <span class="caret"></span></button>
+								<ul class="dropdown-menu">
+								  <li><a href="#" class="protocol-items" >HTTPS</a></li>
+								  <li><a href="#" class="protocol-items" >HTTP</a></li>
+								</ul>
+							  </div><!-- /btn-group -->
+							<input type="text" name="poolUrl" placeholder="Pool URL" class="form-control" value="www.suchcoins.com">
+						</div>
 						</div>
 						<div class="form-group">
 							<label for="apiKey">API Key:</label>
-							<input type="text" name="apiKey" placeholder="API Key" class="form-control" value="a2a420026f35935fee85f15422558907c81db23a6050d0f56ffa5c8886f33a78">
+							<input type="text" name="apiKey" placeholder="API Key" class="form-control" value="782006dfc18bbc3b9c10e7cfb944497b2ccb663f228c91ee6638bb04606b01aa">
 						</div>
 					</div>
 					
@@ -78,9 +87,8 @@
 						<div class="form-group">
 							<label for="refreshRate">Refresh Rate:</label>
 							<select name="refreshRate"  class="form-control">
-								<option value="10000">10 seconds</option>
-								<option value="30000" selected="selected">30 seconds</option>
-								<option value="60000">1 minute</option>
+								<option value="30000">30 seconds</option>
+								<option value="60000" selected="selected">1 minute</option>
 								<option value="300000">5 minute</option>
 								<option value="600000">10 minute</option>
 								<option value="900000">15 minute</option>
@@ -113,7 +121,7 @@
 				<div class="col-lg-12">
 					<button type="subtmit" class="btn btn-primary btn-lg" id="start">Start monitoring! &raquo;</button>
 					<button type="button" class="btn btn-primary btn-lg" id="stop" disabled="disabled">Stop monitoring&raquo;</button>
-					<button type="button" class="btn btn-success btn-lg add-pool" >Add another pool</button>
+					<!--- <button type="button" class="btn btn-success btn-lg add-pool" >Add another pool</button> --->
 					<button type="button" class="btn btn-danger btn-lg nuke-cookies" ><span class="glyphicon glyphicon-fire"></span> Nuke Stored Pools!</button>
 				</div>
 			</div>
@@ -128,456 +136,728 @@
       <!-- Example row of columns -->
 
       <hr>
-    </div> <!-- /container -->        
+    </div> <!-- /container -->    
+
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-12">
+				<div class="userhashrate-graph"></div>
+				<div class="validrate-graph"></div>
+			</div>
+		
+		</div>
+	</div>
 	
 	<div class="container">
 		<footer>
 			<p>&copy; Lazerz 2014</p> 
         </footer>
 	</div>
-	
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
+	<!---
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
         <script>window.jQuery || document.write('<script src="includes/js/vendor/jquery-1.10.1.min.js"><\/script>')</script>
 
         <script src="includes/js/vendor/bootstrap.min.js"></script>
-
+--->
         <script src="includes/js/plugins.js"></script>
-        <script src="includes/js/main.js"></script>
+		<script src="includes/js/amd/require.js"></script>
 		
+		<!---
+		<script src="includes/js/highcharts.js"></script>
 		<script src="includes/js/jquery.pnotify.min.js"></script>
 		<script src="includes/js/jquery.cookie.js"></script>
+		--->
 		
 		<script>
+			var muleEndPoint = "http://66.61.48.221:8081";
+			var reportingEndPoint = "workerdata.html";
+			
 			var settings = {
 				errorLimit : 3,
 				monitorEnabled : true
 			};
 			
-			var objCache = {
-				monitorForm : $('#monitorForm'),
-				monitorOutput : $('#monitorOutput'),
-				btns : {
-					addPool : $('.add-pool'),
-					start : $('#start'),
-					stop : $('#stop'),
-					nuke : $('.nuke-cookies')
-				}
-			};
+			// var objCache = {
+				// monitorForm : $('#monitorForm'),
+				// monitorOutput : $('#monitorOutput'),
+				// btns : {
+					// addPool : $('.add-pool'),
+					// start : $('#start'),
+					// stop : $('#stop'),
+					// nuke : $('.nuke-cookies')
+				// },
+				// userChart:undefined,
+				// sharesChart : undefined
+			// };
 
 			var poolTemplate = '';
 			
-			$(function(){
-				$.cookie.json = true;
-				var cookieData = $.cookie('poolStorage');
-				if(cookieData != undefined){
-					$.each(cookieData, function(k,v){
-						methods.poolFactory(k,v);
-					});
-					
-				}
-				
-				objCache.btns.nuke.click(function(){
-					$.removeCookie('poolStorage');
-					msg("Let the world burn..", "Stored pool data has been cleared.", "success");
-				});
-				
-				$.ajax({
-					'url':'monitorRow.html', 
-					'success' : function(html){
-						poolTemplate = html;
+			window.onload = function(){
+				requirejs.config({
+					baseUrl : "includes/js/amd",
+					config : {
+						'loggingLevel' : 'debug',
+						'logToConsole':true,
+						'logToAlertFallback':false
 					},
-					'dataType': 'html'
-				});
-			
-				$('.add-pool').click(function(){
-					var $clone = objCache.monitorForm.children('.pool:first').clone();
-					$clone.find("input[type='text']").val("");
-					objCache.monitorForm.append($clone);
-					methods.scanRemovePoolBtn();
-				});
-				
-				$('#monitorForm').on('click','.remove-pool', function(){
-					$(this).parents('.pool').remove();
-					methods.scanRemovePoolBtn();
-				});
-				
-				objCache.btns.stop.click(function(){
-					if(settings.monitorEnabled){
-						// Re-enable monitor flag
-						settings.monitorEnabled = false;
-						// toggle button states
-						objCache.btns.stop.attr('disabled','disabled');
-						objCache.btns.start.removeAttr('disabled');
-						objCache.btns.addPool.removeAttr('disabled');
-						// notify end user
-						msg("Info","Stopping Monitoring..","info");
-						
-						// clean up pool output
-						var $poolOut = $('.pool-out');
-						$.each($poolOut, function(i,v){
-							var dataz = $(v).data();
-							$.each(dataz, function(i,v){
-								if(v != 'poolObj'){
-									clearInterval(v.timer);
-									clearInterval(v.refreshTimer);
-									// $.each(i, function(k,m){
-										// if(k == 'timer'){
-											// clearInterval(k);
-										// }
-									// });
-								}
-							});
-						});
-						
-						objCache.monitorForm.slideDown();
-						objCache.monitorOutput.slideUp();
-						
-						$poolOut.remove();
+					paths : {
+						"jquery":"jquery.2.0.3",
+						"highcharts":"../highcharts",
+						"jquery.pnotify" : "../jquery.pnotify.min",
+						"bootstrap" : "../vendor/bootstrap.min"
+					},
+					shim : {
+						"jquery.pnotify" : ["jquery"],
+						"bootstrap.min" : ["jquery"],
+						"jquery.cookie" : ["jquery"],
+						"highcharts": ["jquery"]
 					}
 				});
+				requirejs(["main"]);
+			}
 			
-				objCache.monitorForm.submit(function(e){
-					e.preventDefault();
-					
-					objCache.btns.stop.removeAttr('disabled');
-					objCache.btns.start.attr('disabled','disabled');
-					objCache.btns.addPool.attr('disabled','disabled');
-					
-					methods.parsePools();
-				});
+			// (function(){
 				
-				$('.tooltipped').tooltip();
-			});
+				// $.cookie.json = true;
+				// var cookieData = $.cookie('poolStorage');
+				// if(cookieData != undefined){
+					// $.each(cookieData, function(k,v){
+						// methods.poolFactory(k,v);
+					// });
+					
+				// }
+				
+				// objCache.btns.nuke.click(function(){
+					// $.removeCookie('poolStorage');
+					// msg("Let the world burn..", "Stored pool data has been cleared.", "success");
+				// });
+				
+				// $.ajax({
+					// 'url':'monitorRow.html', 
+					// 'success' : function(html){
+						// poolTemplate = html;
+					// },
+					// 'dataType': 'html'
+				// });
+			
+				// $('.add-pool').click(function(){
+					// var $clone = objCache.monitorForm.children('.pool:first').clone();
+					// $clone.find("input[type='text']").val("");
+					// objCache.monitorForm.append($clone);
+					// methods.scanRemovePoolBtn();
+				// });
+				
+				// $('#monitorForm').on('click','.remove-pool', function(){
+					// $(this).parents('.pool').remove();
+					// methods.scanRemovePoolBtn();
+				// });
+				
+				// objCache.btns.stop.click(function(){
+					// if(settings.monitorEnabled){
+						// // Re-enable monitor flag
+						// settings.monitorEnabled = false;
+						// // toggle button states
+						// objCache.btns.stop.attr('disabled','disabled');
+						// objCache.btns.start.removeAttr('disabled');
+						// objCache.btns.addPool.removeAttr('disabled');
+						// // notify end user
+						// msg("Info","Stopping Monitoring..","info");
+						
+						// // clean up pool output
+						// var $poolOut = $('.pool-out');
+						// $.each($poolOut, function(i,v){
+							// var dataz = $(v).data();
+							// $.each(dataz, function(i,v){
+								// if(v != 'poolObj'){
+									// clearInterval(v.timer);
+									// clearInterval(v.refreshTimer);
+									// // $.each(i, function(k,m){
+										// // if(k == 'timer'){
+											// // clearInterval(k);
+										// // }
+									// // });
+								// }
+							// });
+						// });
+						
+						// objCache.monitorForm.slideDown();
+						// objCache.monitorOutput.slideUp();
+						
+						// $poolOut.remove();
+					// }
+				// });
+			
+				// objCache.monitorForm.submit(function(e){
+					// e.preventDefault();
+					
+					// objCache.btns.stop.removeAttr('disabled');
+					// objCache.btns.start.attr('disabled','disabled');
+					// objCache.btns.addPool.attr('disabled','disabled');
+					
+					// methods.parsePools();
+				// });
+				
+				// $('.tooltipped').tooltip();
+				
+				
+				// $('.protocol-items').click(function(){
+					// var $this = $(this);
+					// console.log($this.text());
+					// var $btn = $this.parents("ul").siblings('.protocol');
+					// console.log($btn);
+					// $btn.html($this.text() + ' <span class="caret"></span>');
+				// });
+				// // sreporting.startup();
+			// });
 			
 			// TODO consider that poolObj.id isn't generateed unique. May need to modify
-			var methods = {
-				parsePools : function(){
-					var $pools = $('.pool');
-					var poolStorage = [];
+			// var methods = {
+				// parsePools : function(){
+					// var $pools = $('.pool');
+					// var poolStorage = [];
 					
-					$.each($pools, function(i,v){
-						var poolObj = methods.getPoolObj($(v));
-						if(poolObj.store){
-							poolStorage.push(poolObj);
-						}
+					// $.each($pools, function(i,v){
+						// var poolObj = methods.getPoolObj($(v));
+						// if(poolObj.store){
+							// poolStorage.push(poolObj);
+						// }
 						
-						if(poolObj != undefined){
-							methods.startMonitoringPool(poolObj);
-						}
-					});
+						// if(poolObj != undefined){
+							// methods.startMonitoringPool(poolObj);
+						// }
+					// });
 					
-					$.cookie('poolStorage',poolStorage, {expires : 30});
+					// $.cookie('poolStorage',poolStorage, {expires : 30});
 					
-				},
-				getPoolObj : function($el){
-					var apiKey = $el.find("input[name='apiKey']").val();
-					var poolUrl = $el.find("input[name='poolUrl']").val();
-					var poolLabel = $el.find("input[name='poolLabel']").val();
-					var store = $el.find("input[name='store']:checked").val() || false;
+				// },
+				// getPoolObj : function($el){
+					// var apiKey = $el.find("input[name='apiKey']").val();
+					// var poolUrl = $el.find("input[name='poolUrl']").val();
+					// var poolLabel = $el.find("input[name='poolLabel']").val();
+					// var store = $el.find("input[name='store']:checked").val() || false;
+					// var protocol = $el.find(".protocol").data('value');
 					
-					if(apiKey && poolUrl){
-						settings.monitorEnabled = true;
+					// if(apiKey && poolUrl){
+						// settings.monitorEnabled = true;
 						
-						var url = poolUrl + '/index.php?page=api&api_key=' + apiKey;
-						var refreshRate = $el.find("select[name='refreshRate']").val();
-						return {
-							'poolUrl' : poolUrl,
-							'apiKey' : apiKey,
-							'url' : url,
-							'refreshRate' : refreshRate,
-							'id' : 'pool-' + Math.floor(Math.random(1, 100000) * 100000),
-							'errorCount' : 0,
-							'label' : poolLabel,
-							'store' : store
-						};
+						// var url = muleEndPoint + '/givemedata?pool=' + poolUrl + '&api_key=' + apiKey;
+						// var refreshRate = $el.find("select[name='refreshRate']").val();
+						// return {
+							// 'protocol':protocol,
+							// 'poolUrl' : poolUrl,
+							// 'apiKey' : apiKey,
+							// 'url' : url,
+							// 'refreshRate' : refreshRate,
+							// 'id' : 'pool-' + Math.floor(Math.random(1, 100000) * 100000),
+							// 'errorCount' : 0,
+							// 'label' : poolLabel,
+							// 'store' : store
+						// };
 
-					} else {
-						// Todo - change this to form element feedback error
-						msg("Ohz Noz!","You didn't fill out the form..","error");
-					}
-				},
-				startMonitoringPool : function(poolObj){
-					$.pnotify_remove_all();
-					msg("Time to work", "Monitoring has started.","success");
-					$.each(msgMapping, function(k,v){
-						methods.sendApiRequest(poolObj,k,v);
-					});
-				},
-				sendApiRequest : function(poolObj,action,callback){
-					var url = poolObj.url + '&action=' + action;
+					// } else {
+						// // Todo - change this to form element feedback error
+						// msg("Ohz Noz!","You didn't fill out the form..","error");
+					// }
+				// },
+				// startMonitoringPool : function(poolObj){
+					// $.pnotify_remove_all();
+					// msg("Time to work", "Monitoring has started.","success");
+					// $.each(msgMapping, function(k,v){
+						// methods.sendApiRequest(poolObj,k,v);
+					// });
 					
-					var $poolOut = objCache.monitorOutput.find('.pool-out.' + poolObj.id);
+					// reporting.startup(poolObj.url, "getuserstatus",poolObj.protocol);
+				// },
+				// sendApiRequest : function(poolObj,action,callback){
+					// var url = poolObj.url + '&action=' + action + '&protocol=' + poolObj.protocol;
 					
-					if($poolOut.length < 1){
-						var $poolOut = $(poolTemplate).clone();
+					// var $poolOut = objCache.monitorOutput.find('.pool-out.' + poolObj.id);
+					
+					// if($poolOut.length < 1){
+						// var $poolOut = $(poolTemplate).clone();
 						
-						$poolOut.addClass(poolObj.id);
-						$poolOut.find('.panel-title').text(poolObj.label);
+						// $poolOut.addClass(poolObj.id);
+						// $poolOut.find('.panel-title').text(poolObj.label);
 						
-						objCache.monitorOutput.append($poolOut);
-					}
+						// objCache.monitorOutput.append($poolOut);
+					// }
 					
-					$poolOut.data('poolObj', poolObj);
+					// $poolOut.data('poolObj', poolObj);
 					
-					feedback.working(action, $poolOut, poolObj);
-					var dfd = $.ajax({
-						"type":"post",
-						"url" : "proxy.cfm",
-						data: {"url":url},
-						success: function(data){
-							// reset consecutive error count
-							poolObj.errorCount = 0;
+					// feedback.working(action, $poolOut, poolObj);
+					// var dfd = $.ajax({
+						// "type":"post",
+						// "url" : "proxy.cfm",
+						// data: {"url":url},
+						// success: function(data){
+							// // reset consecutive error count
+							// poolObj.errorCount = 0;
 							
-							// Hide pool form
-							objCache.monitorForm.slideUp();;
+							// // Hide pool form
+							// objCache.monitorForm.slideUp();;
 							
-							// Show monitoring output
-							objCache.monitorOutput.removeClass('hidden').slideDown();
+							// // Show monitoring output
+							// objCache.monitorOutput.removeClass('hidden').slideDown();
 							
-							// parse data
-							if(callback != undefined && typeof callback == 'function'){
-								callback.call(this,data,$poolOut,poolObj);
-							}
+							// // parse data
+							// if(callback != undefined && typeof callback == 'function'){
+								// callback.call(this,data,$poolOut,poolObj);
+							// }
 							
-							// update end user 
-							feedback.doneWorking(action, $poolOut);
-						},
-						error : function(x,h,r){
-							feedback.error(action, $poolOut);
+							// // update end user 
+							// feedback.doneWorking(action, $poolOut);
+						// },
+						// error : function(x,h,r){
+							// feedback.error(action, $poolOut);
 							
-							if(++poolObj.errorCount >= settings.errorLimit ){
-								if(settings.monitorEnabled){
-									$('#stop').click();
-									$.pnotify_remove_all();
-									msg("Epic Fail","Consecutive error count of ["+settings.errorLimit+"] reached, disabling Monitoring. Review your settings or try again later.","fatal");
-								}
-							} else {
-								msg("Ohz Noz!","We hit an error on refresh! ["+r+"]","error");
-							}
-						},
-						dataType : "json"
-					});
+							// if(++poolObj.errorCount >= settings.errorLimit ){
+								// if(settings.monitorEnabled){
+									// $('#stop').click();
+									// $.pnotify_remove_all();
+									// msg("Epic Fail","Consecutive error count of ["+settings.errorLimit+"] reached, disabling Monitoring. Review your settings or try again later.","fatal");
+								// }
+							// } else {
+								// msg("Ohz Noz!","We hit an error on refresh! ["+r+"]","error");
+							// }
+						// },
+						// dataType : "json"
+					// });
 					
-					$.when(dfd).always(function(){
-						var refreshTimer = setTimeout(function(){
-							if(settings.monitorEnabled){
-								methods.sendApiRequest(poolObj, action, callback);
-							}
-						}, poolObj.refreshRate);
+					// $.when(dfd).always(function(){
+						// var refreshTimer = setTimeout(function(){
+							// if(settings.monitorEnabled){
+								// methods.sendApiRequest(poolObj, action, callback);
+							// }
+						// }, poolObj.refreshRate);
 						
-						var actionPayload = $poolOut.data(action);
-						// If a mass error happend its possible that monitoring has been disabled. This will
-						// cause the $poolOut element to be destoryed and no actionPayload will exist.
-						if(actionPayload != undefined){
-							actionPayload.refreshTimer = refreshTimer;
-							$poolOut.data(action,actionPayload);
-						}
-					});
-				},
-				scanRemovePoolBtn : function(){
-					var $pools = $('.pool');
-					if($pools.length > 1){
-						$pools.find(".remove-pool").removeAttr('disabled');
-					} else {
-						$pools.find(".remove-pool").attr('disabled','disabled');
-					}
+						// var actionPayload = $poolOut.data(action);
+						// // If a mass error happend its possible that monitoring has been disabled. This will
+						// // cause the $poolOut element to be destoryed and no actionPayload will exist.
+						// if(actionPayload != undefined){
+							// actionPayload.refreshTimer = refreshTimer;
+							// $poolOut.data(action,actionPayload);
+						// }
+					// });
+				// },
+				// scanRemovePoolBtn : function(){
+					// var $pools = $('.pool');
+					// if($pools.length > 1){
+						// $pools.find(".remove-pool").removeAttr('disabled');
+					// } else {
+						// $pools.find(".remove-pool").attr('disabled','disabled');
+					// }
 					
-				},
-				poolFactory : function(index,poolObj){
+				// },
+				// poolFactory : function(index,poolObj){
 					
-					var $clone;
-					if(index == 0){
-						$clone = $('.pool:first');
-					} else {
-						$clone = $('.pool:first').clone(true);
-					}
+					// var $clone;
+					// if(index == 0){
+						// $clone = $('.pool:first');
+					// } else {
+						// $clone = $('.pool:first').clone(true);
+					// }
 					
-					$clone.find("input[name='apiKey']").val(poolObj.apiKey);
-					$clone.find("input[name='poolUrl']").val(poolObj.poolUrl);
-					$clone.find("input[name='poolLabel']").val(poolObj.label);
-					$clone.find("input[name='store']").removeAttr('checked');
-					$clone.find("select[name='refreshRate'] option[value='"+poolObj.refreshRate+"']").attr('selected','selected');
+					// $clone.find("input[name='apiKey']").val(poolObj.apiKey);
+					// $clone.find("input[name='poolUrl']").val(poolObj.poolUrl);
+					// $clone.find("input[name='poolLabel']").val(poolObj.label);
+					// $clone.find("input[name='store']").removeAttr('checked');
+					// $clone.find("select[name='refreshRate'] option[value='"+poolObj.refreshRate+"']").attr('selected','selected');
 					
-					if(index > 0){
-						objCache.monitorForm.append($clone);
-						methods.scanRemovePoolBtn();
-					}
+					// if(index > 0){
+						// objCache.monitorForm.append($clone);
+						// methods.scanRemovePoolBtn();
+					// }
 					
-				}
-			};
+				// }
+			// };
 			
-			var parseMgs = {
-				parseUserData : function(data,$poolOut){
-					if(data != undefined && typeof data == 'object'){
-						var base = data.getuserstatus.data;
-						setData($poolOut, '.username', base.username);
-						setData($poolOut, '.validshares', base.shares.valid);
-						setData($poolOut, '.invalidshares', base.shares.invalid);
-						setData($poolOut, '.sharerate', base.sharerate);
-						setData($poolOut, '.hashrate', formatData.hashRate(base.hashrate));
-					}
-				},
-				parsePoolData: function(data,$poolOut){
-					if(data != undefined && typeof data == 'object'){
-						var base = data.getpoolstatus.data;
-						setData($poolOut, '.workers', base.workers);
-						setData($poolOut, '.poolHashrate', formatData.hashRate(base.hashrate));
-						setData($poolOut, '.difficulty', base.networkdiff);
-						setData($poolOut, '.nextblock', formatData.time(base.esttime));
-						setData($poolOut, '.lastblock', formatData.time(base.timesincelast));
+			// var parseMgs = {
+				// parseUserData : function(data,$poolOut){
+					// if(data != undefined && typeof data == 'object'){
+						// var base = data.getuserstatus.data;
+						// setData($poolOut, '.username', base.username);
+						// setData($poolOut, '.validshares', base.shares.valid);
+						// setData($poolOut, '.invalidshares', base.shares.invalid);
+						// setData($poolOut, '.sharerate', base.sharerate);
+						// setData($poolOut, '.hashrate', formatData.hashRate(base.hashrate));
+					// }
+				// },
+				// parsePoolData: function(data,$poolOut){
+					// if(data != undefined && typeof data == 'object'){
+						// var base = data.getpoolstatus.data;
+						// setData($poolOut, '.workers', base.workers);
+						// setData($poolOut, '.poolHashrate', formatData.hashRate(base.hashrate));
+						// setData($poolOut, '.difficulty', base.networkdiff);
+						// setData($poolOut, '.nextblock', formatData.time(base.esttime));
+						// setData($poolOut, '.lastblock', formatData.time(base.timesincelast));
 						
-						if(base.timesincelast < 30){
-							msg("Yay!","A block was found recently!","success");
-						}
-					}
-				},
-				parseWorkerData: function(data,$poolOut){
-					if(data != undefined && typeof data == 'object'){
-						var $workersData = $poolOut.find('.workersData');
-						$workersData.children('.worker:not(.group-heading)').remove()
-						var workers = data.getuserworkers.data;
-						$.each(workers, function(i,v){
-							var $work = $(emptyWorker).clone();
-							if(v.hashrate == 0){
-								$work.addClass('list-group-item-warning');
-							} else {
-								$work.addClass('list-group-item-success');
-							}
-							$work.find('.workerLbl').text(v.username);
-							$work.find('.workerHashRate').text(formatData.hashRate(v.hashrate));
-							$workersData.append($work);
-						});
+						// if(base.timesincelast < 30){
+							// msg("Yay!","A block was found recently!","success");
+						// }
+					// }
+				// },
+				// parseWorkerData: function(data,$poolOut){
+					// if(data != undefined && typeof data == 'object'){
+						// var $workersData = $poolOut.find('.workersData');
+						// $workersData.children('.worker:not(.group-heading)').remove()
+						// var workers = data.getuserworkers.data;
+						// $.each(workers, function(i,v){
+							// var $work = $(emptyWorker).clone();
+							// if(v.hashrate == 0){
+								// $work.addClass('list-group-item-warning');
+							// } else {
+								// $work.addClass('list-group-item-success');
+							// }
+							// $work.find('.workerLbl').text(v.username);
+							// $work.find('.workerHashRate').text(formatData.hashRate(v.hashrate));
+							// $workersData.append($work);
+						// });
 
-					}
-				},
-				parseUserBalance: function(data,$poolOut){
-					if(data != undefined && typeof data == 'object'){
-						var base = data.getuserbalance.data;
-						setData($poolOut, '.payout-confirmed', base.confirmed);
-						setData($poolOut, '.payout-unconfirmed', base.unconfirmed);
-						setData($poolOut, '.payout-orphaned', base.orphaned);
-					}
-				}
-			};
+					// }
+				// },
+				// parseUserBalance: function(data,$poolOut){
+					// if(data != undefined && typeof data == 'object'){
+						// var base = data.getuserbalance.data;
+						// setData($poolOut, '.payout-confirmed', base.confirmed);
+						// setData($poolOut, '.payout-unconfirmed', base.unconfirmed);
+						// setData($poolOut, '.payout-orphaned', base.orphaned);
+					// }
+				// }
+			// };
 			
-			var emptyWorker = '<li class="list-group-item worker"><b class="workerLbl"></b> <span class="workerHashRate"></span></li>';
+			// var emptyWorker = '<li class="list-group-item worker"><b class="workerLbl"></b> <span class="workerHashRate"></span></li>';
 			
-			var setData = function($poolOut, clazz, val){
-				$poolOut.find(clazz).text(val);
-			}
+			// var setData = function($poolOut, clazz, val){
+				// $poolOut.find(clazz).text(val);
+			// }
 			
-			var formatData = {
-				time : function(seconds){					
-					var minutes = Math.floor( seconds / 60 );
-					var secs = Math.floor(seconds % 60);
-					var formattedTime = minutes + 'm ' + secs + 's';
-					return formattedTime;
-				},
-				hashRate : function(rate){
-					if(rate > 1024){
-						if(rate > 1024000){
-							return (rate / 1024000).toFixed(2) + 'Ghs';
-						} else {
-							return (rate / 1024).toFixed(2) + 'Mhs';
-						}
-					} else {
-						return rate + 'Khs';
-					}
-				}
-			};
+			// var formatData = {
+				// time : function(seconds){					
+					// var minutes = Math.floor( seconds / 60 );
+					// var secs = Math.floor(seconds % 60);
+					// var formattedTime = minutes + 'm ' + secs + 's';
+					// return formattedTime;
+				// },
+				// hashRate : function(rate){
+					// if(rate > 1024){
+						// if(rate > 1024000){
+							// return (rate / 1024000).toFixed(2) + 'Ghs';
+						// } else {
+							// return (rate / 1024).toFixed(2) + 'Mhs';
+						// }
+					// } else {
+						// return rate + 'Khs';
+					// }
+				// }
+			// };
 			
-			/**
-			action = {
-				'timer' : timer interval for count down clock,
-				'refreshTimer' : timer for next ajax request
-				'countDown' : current value of countdown clock,
-				'refreshRate' : current refresh interval,
-			}
-			*/
-			var feedback = {
-				setupFeedback : function(action, $poolOut, poolObj){
-					var actionPayload = $poolOut.data(action);
-					if(actionPayload == undefined){
-						actionPayload = {
-							'timer' : undefined,
-							'countDown' : poolObj.refreshRate / 1000,
-							'refreshRate' : poolObj.refreshRate,
-							'refreshTimer' : undefined
-						};
+			// /**
+			// action = {
+				// 'timer' : timer interval for count down clock,
+				// 'refreshTimer' : timer for next ajax request
+				// 'countDown' : current value of countdown clock,
+				// 'refreshRate' : current refresh interval,
+			// }
+			// */
+			// var feedback = {
+				// setupFeedback : function(action, $poolOut, poolObj){
+					// var actionPayload = $poolOut.data(action);
+					// if(actionPayload == undefined){
+						// actionPayload = {
+							// 'timer' : undefined,
+							// 'countDown' : poolObj.refreshRate / 1000,
+							// 'refreshRate' : poolObj.refreshRate,
+							// 'refreshTimer' : undefined
+						// };
 						
-						$poolOut.data(action, actionPayload);
-					}
+						// $poolOut.data(action, actionPayload);
+					// }
 					
-					return actionPayload;
-				},
-				working : function(action, $poolOut, poolObj){
-					// Setup data if this is our first time thru
-					var actionPayload = feedback.setupFeedback(action, $poolOut, poolObj);
+					// return actionPayload;
+				// },
+				// working : function(action, $poolOut, poolObj){
+					// // Setup data if this is our first time thru
+					// var actionPayload = feedback.setupFeedback(action, $poolOut, poolObj);
 					
-					if(actionPayload.timer != undefined){
-						clearInterval(actionPayload.timer);
-						actionPayload.timer = undefined;
-						$poolOut.data(action, actionPayload);
-					}
+					// if(actionPayload.timer != undefined){
+						// clearInterval(actionPayload.timer);
+						// actionPayload.timer = undefined;
+						// $poolOut.data(action, actionPayload);
+					// }
 					
-					$poolOut.find('.'+action).text("Refreshing data..").prepend("<span class='glyphicon glyphicon-refresh'></span> ");
-				},
-				doneWorking : function(action, $poolOut){
-					var actionPayload = $poolOut.data(action);
+					// $poolOut.find('.'+action).text("Refreshing data..").prepend("<span class='glyphicon glyphicon-refresh'></span> ");
+				// },
+				// doneWorking : function(action, $poolOut){
+					// var actionPayload = $poolOut.data(action);
 					
-					if(actionPayload.timer == undefined){
-						actionPayload.countDown = actionPayload.refreshRate / 1000;
-						timer = setInterval(function(){
-							var actionPayload = $poolOut.data(action);
-							if(actionPayload.countDown > 0){
-								$poolOut.find('.'+action).text(" Updated. Next update in " + formatData.time(actionPayload.countDown) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
-								--actionPayload.countDown;
-							} else {
-								$poolOut.find('.'+action).text(" Updated. Next update in " + formatData.time(0) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
-								clearInterval(actionPayload.timer);
-							}
-							$poolOut.data(action, actionPayload);
-						},
-						1000);
+					// if(actionPayload == undefined){
+						// console.error("actionPayload is undefined", action, $poolOut.data());
+					// }else if(actionPayload.timer == undefined){
+						// actionPayload.countDown = actionPayload.refreshRate / 1000;
+						// timer = setInterval(function(){
+							// var actionPayload = $poolOut.data(action);
+							// if(actionPayload.countDown > 0){
+								// $poolOut.find('.'+action).text(" Updated. Next update in " + formatData.time(actionPayload.countDown) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
+								// --actionPayload.countDown;
+							// } else {
+								// $poolOut.find('.'+action).text(" Updated. Next update in " + formatData.time(0) ).prepend("<span class='glyphicon glyphicon-ok'></span> ");
+								// clearInterval(actionPayload.timer);
+							// }
+							// $poolOut.data(action, actionPayload);
+						// },
+						// 1000);
 						
-						actionPayload.timer = timer;
-						$poolOut.data(action, actionPayload);
-					}
-				},
-				error : function(action, $poolOut){
-					var actionPayload = $poolOut.data(action);
-					$poolOut.find('.'+action).text("Opps, bad things..").prepend("<span class='glyphicon glyphicon-warning-sign'></span> ");
-					if(actionPayload != undefined && actionPayload.timer != undefined){
-						clearInterval(actionPayload.timer);
-						$poolOut.data(action, actionPayload);
-					}
-				}
-			}
+						// actionPayload.timer = timer;
+						// $poolOut.data(action, actionPayload);
+					// }
+				// },
+				// error : function(action, $poolOut){
+					// var actionPayload = $poolOut.data(action);
+					// $poolOut.find('.'+action).text("Opps, bad things..").prepend("<span class='glyphicon glyphicon-warning-sign'></span> ");
+					// if(actionPayload != undefined && actionPayload.timer != undefined){
+						// clearInterval(actionPayload.timer);
+						// $poolOut.data(action, actionPayload);
+					// }
+				// }
+			// }
 			
-			var msg = function(title,msg,type){
-				var sticky = false;
-				
-				if(type == 'fatal'){
-					type = 'error';
-					sticky = true
-				}
-				
-				$.pnotify({
-					'title':title,
-					'text':msg,
-					'type':type,
-					'history':false,
-					'hide': !sticky,
-					'styling':'bootstrap'
-				});
-			}
+			// var reporting = {
+				// startup : function(apiUrl, report,protocol){
+					
+					// reporting.setupCharts();
+					// apiUrl += "&protocol=" + protocol;
+					// var fullApiUrl = apiUrl +  "&report=" + report;
+					// $.ajax({
+						// "type":"post",
+						// "url" : "proxy.cfm",
+						// data : {url:fullApiUrl},
+						// success : function(data){
+							// reporting.parseData(data,apiUrl);
+						// },
+						// error : function(x,h,r){
+							// console.error(h,r)
+						// },
+						// dataType : 'json'
+					// });
+				// },
+				// updateCharts : function(apiUrl, lastEntrydate){
+					// apiUrl += "&report=getuserstatusrange&epochtime=" + lastEntrydate;
+					// $.ajax({
+						// "type":"post",
+						// "url" : "proxy.cfm",
+						// data : {url:apiUrl},
+						// success : function(data){
+							// reporting.parseData(data,apiUrl);
+						// },
+						// error : function(x,h,r){
+							// console.error(h,r)
+						// },
+						// dataType : 'json'
+					// });
+				// },
+				// parseData : function(data, apiUrl){
+					// console.log(data);
+					
+					// if(data.resultset1.length){
+						// var userData = [];
+						// var userEntry = {
+							// data : []
+						// };
+						
+						// var validsData = [];
+						// var validsEntry = {
+							// name:"Valid Shares",
+							// data : []
+						// };
+						// var invalidsEntry = {
+							// name:"Invalid Shares",
+							// data : []
+						// };
+						// $.each(data.resultset1, function(i,v){
+							// reporting.createDataPoint(v,"hashrate",userEntry);
+							// reporting.createDataPoint(v,"validshares",validsEntry);
+							// reporting.createDataPoint(v,"invalidshares",invalidsEntry);
+						// });
+						// userData.push(userEntry);
+	// //					console.log(userData);
+						// reporting.updateUserData(userData);
+
+						// validsData.push(validsEntry);
+						// validsData.push(invalidsEntry);
+	// //					console.log(validsData);
+						// reporting.updateShares(validsData);
+						
+						// var lastEntryDate = userData[0].data[(userData[0].data.length-1)];
+						// setTimeout(function(){
+							// reporting.updateCharts(apiUrl, lastEntryDate[0]++);
+						// },70000);
+					// } // no data to graph
+				// },
+				// createDataPoint : function(data,key,arraySet){
+					// var tempUser = [
+						// data.entrydate,
+						// data[key]
+					// ];
+					// if(arraySet.name == undefined){
+						// arraySet.name = data.username;
+					// }
+					// arraySet.data.push(tempUser);
+					// return arraySet;
+				// },
+				// setupCharts : function(){
+					// objCache.userChart = new Highcharts.Chart({
+						// chart: {
+							// renderTo : $('.userhashrate-graph')[0],
+							// zoomType: 'x',
+							// spacingRight: 20
+						// },
+						// title : {
+							// 'text': 'User Hashrate'
+						// },
+						// subtitle :{
+							// 'text':'Click and drag to zoom in!'
+						// },
+						// xAxis : {
+							// 'title':{
+								// 'text':'Time'
+							// },
+							// 'maxZoom' : 1 * 3600000,
+							// 'type':'datetime'
+						// },
+						// yAxis : {
+							// 'title' : {
+								// 'text': 'Hashrate (Khs)'
+							// },
+							// 'min':0
+						// },
+						// tooltip: {
+							// valueSuffix: 'Khs'
+						// },
+						// plotOptions: {
+							// series: {
+								// marker: {
+									// enabled: false,
+									// states: {
+										// hover: {
+											// enabled: true
+										// }
+									// }
+								// }
+							// }
+						// },
+						// legend: {
+							// layout: 'vertical',
+							// align: 'right',
+							// verticalAlign: 'middle',
+							// borderWidth: 0
+						// },
+						// series:[]
+					// });
+					
+					// objCache.sharesChart = new Highcharts.Chart({
+						// chart: {
+							// renderTo:$('.validrate-graph')[0],
+							// zoomType: 'x',
+							// spacingRight: 20
+						// },
+						// title : {
+							// 'text': 'Valid Hashes'
+						// },
+						// subtitle :{
+							// 'text':'Click and drag to zoom in!'
+						// },
+						// xAxis : {
+							// 'title':{
+								// 'text':'Time'
+							// },
+							// 'maxZoom' : 1 * 3600000,
+							// 'type':'datetime'
+						// },
+						// yAxis : {
+							// 'title' : {
+								// 'text': 'Shares'
+							// },
+							// 'min':0
+						// },
+						// plotOptions: {
+							// series: {
+								// marker: {
+									// enabled: false,
+									// states: {
+										// hover: {
+											// enabled: true
+										// }
+									// }
+								// }
+							// }
+						// },
+						// legend: {
+							// layout: 'vertical',
+							// align: 'right',
+							// verticalAlign: 'middle',
+							// borderWidth: 0
+						// },
+						// series:[]
+					// });
+				// },
+				// updateUserData : function(userData){
+					// var series = objCache.userChart.series;
+// //					reporting.setupAxis(series, validsData);
+					// var wasUpdated = reporting.setupAxis(objCache.userChart, userData);
+					// if(!wasUpdated){
+						// $.each(userData[0].data, function(i,v){
+							// series[0].addPoint(v,true,false);
+						// });
+					// }
+				// },
+				// updateShares : function(validsData){
+					// var series = objCache.sharesChart.series;
+					// console.log(series.length);
+					// var wasUpdated = reporting.setupAxis(objCache.sharesChart, validsData);
+					// if(!wasUpdated){
+						// $.each(validsData[0].data, function(i,v){
+							// series[0].addPoint(v,true,false);
+						// });
+					// }
+					
+				// },
+				// setupAxis : function(chart,data){
+					// var wasUpdated = false;
+					// if(chart.series.length < data.length){
+						// for(var i = 0; i < data.length; i++){
+							// chart.addSeries(data[i]);
+							// wasUpdated = true;
+						// }
+					// }
+					
+					// return wasUpdated;
+				// }
+			// };
 			
-			var msgMapping = {
-				"getuserstatus" : parseMgs.parseUserData,
-				"getpoolstatus" : parseMgs.parsePoolData,
-				"getuserworkers" : parseMgs.parseWorkerData,
-				"getuserbalance" : parseMgs.parseUserBalance
-			};
+			// var msg = function(title,msg,type){
+				// var sticky = false;
+				
+				// if(type == 'fatal'){
+					// type = 'error';
+					// sticky = true
+				// }
+				
+				// $.pnotify({
+					// 'title':title,
+					// 'text':msg,
+					// 'type':type,
+					// 'history':false,
+					// 'hide': !sticky,
+					// 'styling':'bootstrap'
+				// });
+			// }
+			
+			// var msgMapping = {
+				// "getuserstatus" : parseMgs.parseUserData,
+				// "getpoolstatus" : parseMgs.parsePoolData,
+				// "getuserworkers" : parseMgs.parseWorkerData,
+				// "getuserbalance" : parseMgs.parseUserBalance
+			// };
 		</script>
 
         <script>

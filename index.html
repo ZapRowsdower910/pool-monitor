@@ -66,11 +66,20 @@
 					<div class="col-lg-6">
 						<div class="form-group">
 							<label for="poolUrl">Pool URL:</label>
-							<input type="text" name="poolUrl" placeholder="Pool URL" class="form-control" value="https://doge.hashfaster.com">
+							<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default dropdown-toggle protocol" data-toggle="dropdown" data-value="http">HTTP <span class="caret"></span></button>
+								<ul class="dropdown-menu">
+								  <li><a href="#" class="protocol-items" >HTTP</a></li>
+								  <li><a href="#" class="protocol-items" >HTTPS</a></li>
+								</ul>
+							  </div><!-- /btn-group -->
+							<input type="text" name="poolUrl" placeholder="Pool URL" class="form-control" value="suchcoins.com">
+						</div>
 						</div>
 						<div class="form-group">
 							<label for="apiKey">API Key:</label>
-							<input type="text" name="apiKey" placeholder="API Key" class="form-control" value="a2a420026f35935fee85f15422558907c81db23a6050d0f56ffa5c8886f33a78">
+							<input type="text" name="apiKey" placeholder="API Key" class="form-control" value="782006dfc18bbc3b9c10e7cfb944497b2ccb663f228c91ee6638bb04606b01aa">
 						</div>
 					</div>
 					
@@ -78,9 +87,8 @@
 						<div class="form-group">
 							<label for="refreshRate">Refresh Rate:</label>
 							<select name="refreshRate"  class="form-control">
-								<option value="10000">10 seconds</option>
-								<option value="30000" selected="selected">30 seconds</option>
-								<option value="60000">1 minute</option>
+								<option value="30000">30 seconds</option>
+								<option value="60000" selected="selected">1 minute</option>
 								<option value="300000">5 minute</option>
 								<option value="600000">10 minute</option>
 								<option value="900000">15 minute</option>
@@ -113,7 +121,7 @@
 				<div class="col-lg-12">
 					<button type="subtmit" class="btn btn-primary btn-lg" id="start">Start monitoring! &raquo;</button>
 					<button type="button" class="btn btn-primary btn-lg" id="stop" disabled="disabled">Stop monitoring&raquo;</button>
-					<button type="button" class="btn btn-success btn-lg add-pool" >Add another pool</button>
+					<!--- <button type="button" class="btn btn-success btn-lg add-pool" >Add another pool</button> --->
 					<button type="button" class="btn btn-danger btn-lg nuke-cookies" ><span class="glyphicon glyphicon-fire"></span> Nuke Stored Pools!</button>
 				</div>
 			</div>
@@ -152,14 +160,15 @@
         <script src="includes/js/vendor/bootstrap.min.js"></script>
 
         <script src="includes/js/plugins.js"></script>
-        <script src="includes/js/main.js"></script>
 		
 		<script src="includes/js/highcharts.js"></script>
 		<script src="includes/js/jquery.pnotify.min.js"></script>
 		<script src="includes/js/jquery.cookie.js"></script>
 		
+		<script src="includes/js/require.js"></script>
+		
 		<script>
-			var muleEndPoint = "http://jaypalker:8081";
+			var muleEndPoint = "http://66.61.48.221:8081";
 			var reportingEndPoint = "workerdata.html";
 			
 			var settings = {
@@ -175,7 +184,9 @@
 					start : $('#start'),
 					stop : $('#stop'),
 					nuke : $('.nuke-cookies')
-				}
+				},
+				userChart:undefined,
+				sharesChart : undefined
 			};
 
 			var poolTemplate = '';
@@ -262,6 +273,15 @@
 				
 				$('.tooltipped').tooltip();
 				
+				
+				$('.protocol-items').click(function(){
+					var $this = $(this);
+					console.log($this.text());
+					var $btn = $this.parents("ul").siblings('.protocol');
+					console.log($btn);
+					$btn.html($this.text() + ' <span class="caret"></span>');
+					$btn.data('value',$this.text().toLowerCase());
+				});
 				// sreporting.startup();
 			});
 			
@@ -290,6 +310,7 @@
 					var poolUrl = $el.find("input[name='poolUrl']").val();
 					var poolLabel = $el.find("input[name='poolLabel']").val();
 					var store = $el.find("input[name='store']:checked").val() || false;
+					var protocol = $el.find(".protocol").data('value');
 					
 					if(apiKey && poolUrl){
 						settings.monitorEnabled = true;
@@ -297,6 +318,7 @@
 						var url = muleEndPoint + '/givemedata?pool=' + poolUrl + '&api_key=' + apiKey;
 						var refreshRate = $el.find("select[name='refreshRate']").val();
 						return {
+							'protocol':protocol,
 							'poolUrl' : poolUrl,
 							'apiKey' : apiKey,
 							'url' : url,
@@ -319,10 +341,10 @@
 						methods.sendApiRequest(poolObj,k,v);
 					});
 					
-					reporting.startup(poolObj.url, "getuserstatus");
+					reporting.startup(poolObj.url, "getuserstatus",poolObj.protocol);
 				},
 				sendApiRequest : function(poolObj,action,callback){
-					var url = poolObj.url + '&action=' + action;
+					var url = poolObj.url + '&action=' + action + '&protocol=' + poolObj.protocol;
 					
 					var $poolOut = objCache.monitorOutput.find('.pool-out.' + poolObj.id);
 					
@@ -543,7 +565,9 @@
 				doneWorking : function(action, $poolOut){
 					var actionPayload = $poolOut.data(action);
 					
-					if(actionPayload.timer == undefined){
+					if(actionPayload == undefined){
+						console.error("actionPayload is undefined", action, $poolOut.data());
+					}else if(actionPayload.timer == undefined){
 						actionPayload.countDown = actionPayload.refreshRate / 1000;
 						timer = setInterval(function(){
 							var actionPayload = $poolOut.data(action);
@@ -573,14 +597,17 @@
 			}
 			
 			var reporting = {
-				startup : function(apiUrl, report){
-					apiUrl += "&report=" + report
+				startup : function(apiUrl, report,protocol){
+					
+					reporting.setupCharts();
+					apiUrl += "&protocol=" + protocol;
+					var fullApiUrl = apiUrl +  "&report=" + report;
 					$.ajax({
 						"type":"post",
 						"url" : "proxy.cfm",
-						data : {url:apiUrl},
+						data : {url:fullApiUrl},
 						success : function(data){
-							reporting.parseData(data);
+							reporting.parseData(data,apiUrl);
 						},
 						error : function(x,h,r){
 							console.error(h,r)
@@ -588,37 +615,58 @@
 						dataType : 'json'
 					});
 				},
-				parseData : function(data){
+				updateCharts : function(apiUrl, lastEntrydate){
+					apiUrl += "&report=getuserstatusrange&epochtime=" + lastEntrydate;
+					$.ajax({
+						"type":"post",
+						"url" : "proxy.cfm",
+						data : {url:apiUrl},
+						success : function(data){
+							reporting.parseData(data,apiUrl);
+						},
+						error : function(x,h,r){
+							console.error(h,r)
+						},
+						dataType : 'json'
+					});
+				},
+				parseData : function(data, apiUrl){
 					console.log(data);
 					
-					var userData = [];
-					var userEntry = {
-						data : []
-					};
-					
-					var validsData = [];
-					var validsEntry = {
-						name:"Valid Shares",
-						data : []
-					};
-					var invalidsEntry = {
-						name:"Invalid Shares",
-						data : []
-					};
-					$.each(data, function(i,v){
-						reporting.createDataPoint(v,"hashrate",userEntry);
-						reporting.createDataPoint(v,"validshares",validsEntry);
-						reporting.createDataPoint(v,"invalidshares",invalidsEntry);
-					});
-					userData.push(userEntry);
-					console.log(userData);
-					reporting.chartUserData(userData);
+					if(data.resultset1.length){
+						var userData = [];
+						var userEntry = {
+							data : []
+						};
+						
+						var validsData = [];
+						var validsEntry = {
+							name:"Valid Shares",
+							data : []
+						};
+						var invalidsEntry = {
+							name:"Invalid Shares",
+							data : []
+						};
+						$.each(data.resultset1, function(i,v){
+							reporting.createDataPoint(v,"hashrate",userEntry);
+							reporting.createDataPoint(v,"validshares",validsEntry);
+							reporting.createDataPoint(v,"invalidshares",invalidsEntry);
+						});
+						userData.push(userEntry);
+	//					console.log(userData);
+						reporting.updateUserData(userData);
 
-					validsData.push(validsEntry);
-					validsData.push(invalidsEntry);
-					console.log(validsData);
-					reporting.chartShares(validsData);
-					
+						validsData.push(validsEntry);
+						validsData.push(invalidsEntry);
+	//					console.log(validsData);
+						reporting.updateShares(validsData);
+						
+						var lastEntryDate = userData[0].data[(userData[0].data.length-1)];
+						setTimeout(function(){
+							reporting.updateCharts(apiUrl, lastEntryDate[0]++);
+						},70000);
+					} // no data to graph
 				},
 				createDataPoint : function(data,key,arraySet){
 					var tempUser = [
@@ -631,9 +679,10 @@
 					arraySet.data.push(tempUser);
 					return arraySet;
 				},
-				chartUserData : function(userData){
-					$('.userhashrate-graph').highcharts({
+				setupCharts : function(){
+					objCache.userChart = new Highcharts.Chart({
 						chart: {
+							renderTo : $('.userhashrate-graph')[0],
 							zoomType: 'x',
 							spacingRight: 20
 						},
@@ -653,7 +702,8 @@
 						yAxis : {
 							'title' : {
 								'text': 'Hashrate (Khs)'
-							}
+							},
+							'min':0
 						},
 						tooltip: {
 							valueSuffix: 'Khs'
@@ -676,12 +726,12 @@
 							verticalAlign: 'middle',
 							borderWidth: 0
 						},
-						series:userData
+						series:[]
 					});
-				},
-				chartShares : function(validsData){
-					$('.validrate-graph').highcharts({
+					
+					objCache.sharesChart = new Highcharts.Chart({
 						chart: {
+							renderTo:$('.validrate-graph')[0],
 							zoomType: 'x',
 							spacingRight: 20
 						},
@@ -701,7 +751,8 @@
 						yAxis : {
 							'title' : {
 								'text': 'Shares'
-							}
+							},
+							'min':0
 						},
 						plotOptions: {
 							series: {
@@ -721,8 +772,40 @@
 							verticalAlign: 'middle',
 							borderWidth: 0
 						},
-						series:validsData
+						series:[]
 					});
+				},
+				updateUserData : function(userData){
+					var series = objCache.userChart.series;
+//					reporting.setupAxis(series, validsData);
+					var wasUpdated = reporting.setupAxis(objCache.userChart, userData);
+					if(!wasUpdated){
+						$.each(userData[0].data, function(i,v){
+							series[0].addPoint(v,true,false);
+						});
+					}
+				},
+				updateShares : function(validsData){
+					var series = objCache.sharesChart.series;
+					console.log(series.length);
+					var wasUpdated = reporting.setupAxis(objCache.sharesChart, validsData);
+					if(!wasUpdated){
+						$.each(validsData[0].data, function(i,v){
+							series[0].addPoint(v,true,false);
+						});
+					}
+					
+				},
+				setupAxis : function(chart,data){
+					var wasUpdated = false;
+					if(chart.series.length < data.length){
+						for(var i = 0; i < data.length; i++){
+							chart.addSeries(data[i]);
+							wasUpdated = true;
+						}
+					}
+					
+					return wasUpdated;
 				}
 			};
 			
